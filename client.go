@@ -426,7 +426,7 @@ func runClient(cmd *cobra.Command, args []string) {
 		config.QUIC.MaxConnectionReceiveWindow = zConf.RecvWindow
 		
 		// ZIVPN uses SOCKS5 by default
-		config.Socks5 = &socks5Config{
+		config.SOCKS5 = &socks5Config{
 			Listen: zConf.Socks5.Listen,
 		}
 
