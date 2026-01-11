@@ -1,0 +1,48 @@
+name: Build ZIVPN Core
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build libuz.so (Android ARM64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Builder Repo (Patch)
+        uses: actions/checkout@v4
+        with:
+          path: patch
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Checkout Hysteria Source
+        run: |
+          git clone https://github.com/apernet/hysteria.git src
+          cd src
+          git checkout 405572dc6e33
+
+      - name: Apply ZIVPN Patch
+        run: |
+          # Replace original client.go with our patched version
+          cp patch/client.go src/app/cmd/client.go
+          echo "Patch applied successfully."
+
+      - name: Build Binary
+        run: |
+          cd src/app
+          export CGO_ENABLED=0
+          export GOOS=android
+          export GOARCH=arm64
+          go build -ldflags="-s -w" -o ../../libuz.so .
+          ls -lh ../../libuz.so
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libuz.so
+          path: src/libuz.so
