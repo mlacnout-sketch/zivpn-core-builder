@@ -422,8 +422,18 @@ func runClient(cmd *cobra.Command, args []string) {
 		config.Server = zConf.Server
 		config.Auth = zConf.Auth
 		config.TLS.Insecure = zConf.Insecure
-		config.QUIC.InitConnectionReceiveWindow = zConf.RecvWindowConn
-		config.QUIC.MaxConnectionReceiveWindow = zConf.RecvWindow
+		
+		// ZIVPN Turbo Window Tuning Mapping
+		// Mapping recvwindowconn -> Connection Flow Control
+		if zConf.RecvWindowConn > 0 {
+			config.QUIC.InitConnectionReceiveWindow = zConf.RecvWindowConn
+			config.QUIC.MaxConnectionReceiveWindow = zConf.RecvWindowConn
+		}
+		// Mapping recvwindow -> Stream Flow Control
+		if zConf.RecvWindow > 0 {
+			config.QUIC.InitStreamReceiveWindow = zConf.RecvWindow
+			config.QUIC.MaxStreamReceiveWindow = zConf.RecvWindow
+		}
 		
 		// ZIVPN uses SOCKS5 by default
 		config.SOCKS5 = &socks5Config{
