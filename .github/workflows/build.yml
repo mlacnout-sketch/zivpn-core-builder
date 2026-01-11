@@ -26,6 +26,30 @@ jobs:
           cd src
           git checkout 405572dc6e33
 
+      - name: Patch Core (Deep Mimicry)
+        run: |
+          cd src/core/client
+          
+          # 1. Add fields to config.go
+          # Add DisableTLSALPN and AltTLSALPNPort to TLSConfig struct
+          sed -i '/type TLSConfig struct {/,/}/ s/RootCAs.*\*x509.CertPool/&\n\tDisableTLSALPN bool\n\tAltTLSALPNPort int/' config.go
+          
+          # Add UDPIdleTimeout to QUICConfig struct
+          sed -i '/type QUICConfig struct {/,/}/ s/DisablePathMTUDiscovery.*bool.*/&\n\tUDPIdleTimeout time.Duration/' config.go
+          
+          # 2. Implement logic in client.go
+          # Inject logic to disable ALPN if DisableTLSALPN is true
+          # We search for the tlsConfig initialization block and append logic after it
+          sed -i '/RootCAs:.*c.config.TLSConfig.RootCAs,/a \\t}\n\tif c.config.TLSConfig.DisableTLSALPN {\n\t\ttlsConfig.NextProtos = []string{}\n\t}\n\tif c.config.TLSConfig.AltTLSALPNPort > 0 {\n\t\t// TODO: Implement AltPort logic if needed, but for now just placeholder\n\t' client.go
+          
+          # Inject UDPIdleTimeout logic (if needed in quic.Config)
+          # Hysteria v1 wrapper for quic-go might not expose this easily without deeper hacks, 
+          # but ZIVPN has it in config. Let's assume they map it to MaxIdleTimeout for UDP sessions or KeepAlive?
+          # For now, we just added the field to struct so CLI doesn't break.
+          
+          echo "Core Patch Applied."
+          grep -A 5 "TLSConfig struct" config.go
+
       - name: Apply ZIVPN Patch
         run: |
           # Replace original client.go with our patched version

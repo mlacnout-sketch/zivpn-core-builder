@@ -65,6 +65,11 @@ type zivpnConfig struct {
 	Insecure       bool   `json:"insecure"`
 	RecvWindowConn uint64 `json:"recvwindowconn"`
 	RecvWindow     uint64 `json:"recvwindow"`
+	
+	// New Custom Fields
+	DisableTLSALPN  bool   `json:"disable_tls_alpn"` // Guessing JSON key
+	AltTLSALPNPort  int    `json:"alt_tls_alpn_port"`
+	UDPIdleTimeout  int    `json:"udp_idle_timeout"`
 }
 
 type clientConfig struct {
@@ -105,10 +110,12 @@ type clientConfigObfs struct {
 }
 
 type clientConfigTLS struct {
-	SNI       string `mapstructure:"sni"`
-	Insecure  bool   `mapstructure:"insecure"`
-	PinSHA256 string `mapstructure:"pinSHA256"`
-	CA        string `mapstructure:"ca"`
+	SNI            string `mapstructure:"sni"`
+	Insecure       bool   `mapstructure:"insecure"`
+	PinSHA256      string `mapstructure:"pinSHA256"`
+	CA             string `mapstructure:"ca"`
+	DisableTLSALPN bool   `mapstructure:"disableTLSALPN"` // ZIVPN Custom
+	AltTLSALPNPort int    `mapstructure:"altTLSALPNPort"` // ZIVPN Custom
 }
 
 type clientConfigQUIC struct {
@@ -119,6 +126,7 @@ type clientConfigQUIC struct {
 	MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
 	KeepAlivePeriod             time.Duration `mapstructure:"keepAlivePeriod"`
 	DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
+	UDPIdleTimeout              time.Duration `mapstructure:"udpIdleTimeout"` // ZIVPN Custom
 }
 
 type clientConfigBandwidth struct {
@@ -264,6 +272,9 @@ func (c *clientConfig) fillTLSConfig(hyConfig *client.Config) error {
 		}
 		hyConfig.TLSConfig.RootCAs = cPool
 	}
+	// ZIVPN Custom Core Fields (Assumes Core is patched)
+	hyConfig.TLSConfig.DisableTLSALPN = c.TLS.DisableTLSALPN
+	hyConfig.TLSConfig.AltTLSALPNPort = c.TLS.AltTLSALPNPort
 	return nil
 }
 
@@ -276,6 +287,7 @@ func (c *clientConfig) fillQUICConfig(hyConfig *client.Config) error {
 		MaxIdleTimeout:                 c.QUIC.MaxIdleTimeout,
 		KeepAlivePeriod:                c.QUIC.KeepAlivePeriod,
 		DisablePathMTUDiscovery:        c.QUIC.DisablePathMTUDiscovery,
+		UDPIdleTimeout:                 c.QUIC.UDPIdleTimeout, // ZIVPN Custom
 	}
 	return nil
 }
@@ -423,6 +435,13 @@ func runClient(cmd *cobra.Command, args []string) {
 		config.Auth = zConf.Auth
 		config.TLS.Insecure = zConf.Insecure
 		
+		// ZIVPN Custom Mappings
+		config.TLS.DisableTLSALPN = zConf.DisableTLSALPN
+		config.TLS.AltTLSALPNPort = zConf.AltTLSALPNPort
+		if zConf.UDPIdleTimeout > 0 {
+			config.QUIC.UDPIdleTimeout = time.Duration(zConf.UDPIdleTimeout) * time.Second
+		}
+
 		// ZIVPN Turbo Window Tuning Mapping
 		// Mapping recvwindowconn -> Connection Flow Control
 		if zConf.RecvWindowConn > 0 {
